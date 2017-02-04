@@ -44,7 +44,7 @@ clean:
 	rm -f *.o *.out *.bin *.list
 
 flash: upload
-
+up: upload
 upload: motor.bin
 	openocd -f board/stm32f446discovery.cfg -c "init" -c "reset halt" -c "flash write_image erase motor.bin 0x08000000" -c "verify_image motor.bin" -c "reset run" -c "shutdown" 
 
