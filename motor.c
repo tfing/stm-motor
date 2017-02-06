@@ -25,7 +25,8 @@ static MotorPin_t motor_pins[] = {
     {.bit = 0x1, .gpio_pin = GPIO_Pin_13},
 };
 
-// counter clock wise steps
+// ascending  : rotate counterclockwise
+// descending : rotate clockwise
 static uint8_t ccw[8] = {0x1, 0x3, 0x2, 0x6, 0x4, 0xc, 0x8, 0x9};
 
 void MotorPinActive(uint8_t steps)
@@ -52,6 +53,7 @@ int main(void)
 
     // Enable Peripheral clocks
     RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
+    RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
 
     // Configure Pins
     int i;
@@ -64,18 +66,37 @@ int main(void)
         GPIO_Init(GPIOB, &gpio_init);
     }
 
+    // User Button
+    gpio_init.GPIO_Pin = GPIO_Pin_13;
+    gpio_init.GPIO_Mode = GPIO_Mode_IN;
+    gpio_init.GPIO_Speed = GPIO_Low_Speed;
+    gpio_init.GPIO_PuPd = GPIO_PuPd_DOWN;
+    GPIO_Init(GPIOC, &gpio_init);
+
     // Configure SysTick Timer
     if (SysTick_Config(SystemCoreClock / 1000))
         while(1);
 
     while (1) {
         static int step = 8;
+        uint8_t btn = GPIO_ReadInputDataBit(GPIOC, GPIO_Pin_13);
 
         MotorPinActive(ccw[step-1]);
+        if (btn == 0)
+        {
+            // cw
+            step -= 2;
+            if (step < 2)
+                step = 8;
 
-        step -= 2;
-        if (step <= 0)
-            step = 8;
+        }
+        else
+        {
+            // ccw
+            step += 2;
+            if (step > 8)
+                step = 2;
+        }
 
         Delay(20);
     }
