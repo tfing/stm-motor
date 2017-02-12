@@ -33,10 +33,19 @@ stm32f4xx_rcc.o: $(DRIVER)/src/stm32f4xx_rcc.c
 stm32f4xx_gpio.o: $(DRIVER)/src/stm32f4xx_gpio.c
 	$(CC)gcc $(CFLAGS) -c $^ -o $@ 
 
-motor.bin : motor.c startup_stm32f427_437xx.s system_stm32f4xx.o stm32f4xx_rcc.o stm32f4xx_gpio.o
+stm32f4xx_exti.o: $(DRIVER)/src/stm32f4xx_exti.c
+	$(CC)gcc $(CFLAGS) -c $^ -o $@ 
+
+misc.o: $(DRIVER)/src/misc.c
+	$(CC)gcc $(CFLAGS) -c $^ -o $@ 
+
+stm32f4xx_syscfg.o: $(DRIVER)/src/stm32f4xx_syscfg.c
+	$(CC)gcc $(CFLAGS) -c $^ -o $@ 
+
+motor.bin : motor.c startup_stm32f427_437xx.s system_stm32f4xx.o stm32f4xx_rcc.o stm32f4xx_gpio.o stm32f4xx_exti.o misc.o stm32f4xx_syscfg.o
 	$(CC)gcc $(CFLAGS) -c motor.c -o motor.o 
 	$(CC)as  $(ASFLAGS) startup_stm32f427_437xx.s -o startup.o
-	$(CC)ld -Map motor.map -T motor.ld -o motor.out motor.o startup.o system_stm32f4xx.o stm32f4xx_rcc.o stm32f4xx_gpio.o
+	$(CC)ld -Map motor.map -T motor.ld -o motor.out motor.o startup.o system_stm32f4xx.o stm32f4xx_rcc.o stm32f4xx_gpio.o stm32f4xx_exti.o misc.o stm32f4xx_syscfg.o
 	$(CC)objcopy -O binary motor.out motor.bin
 	$(CC)objdump -h -D motor.out > motor.list
 

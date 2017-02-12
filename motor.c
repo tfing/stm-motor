@@ -2,6 +2,8 @@
 #include <stm32f4xx.h>
 #include <stm32f4xx_rcc.h>
 #include <stm32f4xx_gpio.h>
+#include <stm32f4xx_exti.h>
+#include <misc.h>
 
 void Delay(uint32_t nTime);
 
@@ -28,6 +30,7 @@ static MotorPin_t motor_pins[] = {
 // ascending  : rotate counterclockwise
 // descending : rotate clockwise
 static uint8_t ccw[8] = {0x1, 0x3, 0x2, 0x6, 0x4, 0xc, 0x8, 0x9};
+static int rotate_dir = 0;
 
 void MotorPinActive(uint8_t steps)
 {
@@ -50,12 +53,26 @@ int main(void)
     (void)ccw;
 
     GPIO_InitTypeDef gpio_init;
+    EXTI_InitTypeDef exti_init;
+    NVIC_InitTypeDef nvic_init;
 
     // Enable Peripheral clocks
+    RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA, ENABLE);
     RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
     RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
 
+    /* Enable SYSCFG clock */
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG, ENABLE);
+
     // Configure Pins
+    // Led
+    gpio_init.GPIO_Pin = GPIO_Pin_5;
+    gpio_init.GPIO_Mode = GPIO_Mode_OUT;
+    gpio_init.GPIO_OType = GPIO_OType_PP;
+    gpio_init.GPIO_Speed = GPIO_Low_Speed;
+    GPIO_Init(GPIOA, &gpio_init);
+
+    // Motor ctrl
     int i;
     for (i = 0; i < MOTOR_PINS; i++)
     {
@@ -73,16 +90,32 @@ int main(void)
     gpio_init.GPIO_PuPd = GPIO_PuPd_DOWN;
     GPIO_Init(GPIOC, &gpio_init);
 
+    // Connect EXTI13 with PC13
+    SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOC, EXTI_PinSource13);
+
+    // Configure EXTI Line 13
+    exti_init.EXTI_Line = EXTI_Line13;
+    exti_init.EXTI_Mode = EXTI_Mode_Interrupt;
+    exti_init.EXTI_Trigger = EXTI_Trigger_Rising;
+    exti_init.EXTI_LineCmd = ENABLE;
+    EXTI_Init(&exti_init);
+
+    nvic_init.NVIC_IRQChannel = EXTI15_10_IRQn;
+    nvic_init.NVIC_IRQChannelPreemptionPriority = 0x0F;
+    nvic_init.NVIC_IRQChannelSubPriority = 0x0F;
+    nvic_init.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&nvic_init);
+
     // Configure SysTick Timer
     if (SysTick_Config(SystemCoreClock / 1000))
         while(1);
 
     while (1) {
         static int step = 8;
-        uint8_t btn = GPIO_ReadInputDataBit(GPIOC, GPIO_Pin_13);
+        //uint8_t btn = GPIO_ReadInputDataBit(GPIOC, GPIO_Pin_13);
 
         MotorPinActive(ccw[step-1]);
-        if (btn == 0)
+        if (rotate_dir == 0)
         {
             // cw
             step -= 2;
@@ -117,6 +150,23 @@ void SysTick_Handler(void)
         TimingDelay--;
 }
 
+void ToggleLed(void)
+{
+    static int ledval = 0;
+    GPIO_WriteBit(GPIOA, GPIO_Pin_5, (ledval) ? Bit_SET : Bit_RESET);
+    ledval = 1 - ledval;
+}
+
+
+void EXTI15_10_IRQHandler(void)
+{
+    if (EXTI_GetITStatus(EXTI_Line13) == SET)
+    {
+        ToggleLed();
+        rotate_dir = 1 - rotate_dir;
+        EXTI_ClearITPendingBit(EXTI_Line13);
+    }
+}
 
 #ifdef USE_FULL_ASSERT
 void assert_failed(uint8_t *file, uint32_t line)
