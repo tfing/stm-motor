@@ -32,12 +32,12 @@ static MotorPin_t motor_pins[] = {
 static uint8_t ccw[8] = {0x1, 0x3, 0x2, 0x6, 0x4, 0xc, 0x8, 0x9};
 static int rotate_dir = 0;
 
-void MotorPinActive(uint8_t steps)
+void MotorPinActive(uint8_t active_dir)
 {
     uint8_t i;
     for (i = 0; i < MOTOR_PINS; i++)
     {
-        if (steps & motor_pins[i].bit)
+        if (active_dir & motor_pins[i].bit)
         {
             GPIO_WriteBit(GPIOB, motor_pins[i].gpio_pin, Bit_SET);
         }
@@ -45,6 +45,25 @@ void MotorPinActive(uint8_t steps)
         {
             GPIO_WriteBit(GPIOB, motor_pins[i].gpio_pin, Bit_RESET);
         }
+    }
+}
+
+static int units;
+void MotorUnitSteps(uint8_t units)
+{
+    // gear:1/64, core:angle/step = 11.25 = 32 steps/cycle
+    uint8_t core_steps_per_cycle = 32;
+    //uint8_t inverse_reduction_ratio = 64;
+    uint16_t total_cycles = core_steps_per_cycle * units;
+    uint16_t i, dir=1;
+    for (i = 0; i < total_cycles; i++)
+    {
+        MotorPinActive(ccw[dir]);
+        dir+=2;
+        if (dir > 7)
+            dir = 1;
+
+        Delay(10);
     }
 }
 
@@ -111,9 +130,9 @@ int main(void)
         while(1);
 
     while (1) {
+#if 0
         static int step = 8;
         //uint8_t btn = GPIO_ReadInputDataBit(GPIOC, GPIO_Pin_13);
-
         MotorPinActive(ccw[step-1]);
         if (rotate_dir == 0)
         {
@@ -130,8 +149,14 @@ int main(void)
             if (step > 8)
                 step = 2;
         }
+#endif
+        if (units > 0)
+        {
+            MotorUnitSteps(1);
+            units--;
+        }
 
-        Delay(20);
+        Delay(50);
     }
 }
 
@@ -164,6 +189,7 @@ void EXTI15_10_IRQHandler(void)
     {
         ToggleLed();
         rotate_dir = 1 - rotate_dir;
+        units += 64;
         EXTI_ClearITPendingBit(EXTI_Line13);
     }
 }
