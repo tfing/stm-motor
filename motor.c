@@ -91,7 +91,7 @@ int main(void)
     gpio_init.GPIO_Speed = GPIO_Low_Speed;
     GPIO_Init(GPIOA, &gpio_init);
 
-    // Motor ctrl
+    // Motor ctrl, PB1,15,14,13
     int i;
     for (i = 0; i < MOTOR_PINS; i++)
     {
@@ -102,12 +102,19 @@ int main(void)
         GPIO_Init(GPIOB, &gpio_init);
     }
 
-    // User Button
+    // User Button, PC13
     gpio_init.GPIO_Pin = GPIO_Pin_13;
     gpio_init.GPIO_Mode = GPIO_Mode_IN;
     gpio_init.GPIO_Speed = GPIO_Low_Speed;
     gpio_init.GPIO_PuPd = GPIO_PuPd_DOWN;
     GPIO_Init(GPIOC, &gpio_init);
+
+    // External Button, PA12
+    gpio_init.GPIO_Pin = GPIO_Pin_12;
+    gpio_init.GPIO_Mode = GPIO_Mode_IN;
+    gpio_init.GPIO_Speed = GPIO_Low_Speed;
+    gpio_init.GPIO_PuPd = GPIO_PuPd_DOWN;
+    GPIO_Init(GPIOA, &gpio_init);
 
     // Connect EXTI13 with PC13
     SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOC, EXTI_PinSource13);
@@ -124,6 +131,16 @@ int main(void)
     nvic_init.NVIC_IRQChannelSubPriority = 0x0F;
     nvic_init.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&nvic_init);
+
+    // Configure EXTI12 with PA12
+    SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOA, EXTI_PinSource12);
+
+    // Configure EXTI Line 12
+    exti_init.EXTI_Line = EXTI_Line12;
+    exti_init.EXTI_Mode = EXTI_Mode_Interrupt;
+    exti_init.EXTI_Trigger = EXTI_Trigger_Rising;
+    exti_init.EXTI_LineCmd = ENABLE;
+    EXTI_Init(&exti_init);
 
     // Configure SysTick Timer
     if (SysTick_Config(SystemCoreClock / 1000))
@@ -187,11 +204,17 @@ void EXTI15_10_IRQHandler(void)
 {
     if (EXTI_GetITStatus(EXTI_Line13) == SET)
     {
-        ToggleLed();
+        //ToggleLed();
         rotate_dir = 1 - rotate_dir;
         units += 64;
         EXTI_ClearITPendingBit(EXTI_Line13);
     }
+    else if (EXTI_GetITStatus(EXTI_Line12) == SET)
+    {
+        ToggleLed();
+        EXTI_ClearITPendingBit(EXTI_Line12);
+    }
+
 }
 
 #ifdef USE_FULL_ASSERT
